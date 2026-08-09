@@ -743,24 +743,114 @@ Markdown 보고서에는 전체 실행 요약, category별 수, 입력 경고, �
 
 ## 10. macOS 패키지 빌드와 검증
 
-Apple Silicon용 `.pkg`는 다음 명령으로 만든다.
+GitHub에 공개된 소스만으로 Apple Silicon용 `.pkg`를 직접 만들 수 있다. 현재 저장소는 GitHub Actions를 이용한 자동 패키지 빌드를 제공하지 않으므로, 사용자가 Apple Silicon macOS에서 저장소를 clone한 뒤 로컬로 빌드해야 한다.
+
+빌드 과정은 PyInstaller로 `qa-platform` 실행 파일을 만든 다음 macOS의 `pkgbuild`와 `productbuild`를 이용해 installer package로 묶는다.
+
+### 10.1 빌드 환경 확인
+
+필요한 환경은 다음과 같다.
+
+- Apple Silicon 기반 macOS
+- Python 3.11 이상
+- Git
+- macOS의 `pkgbuild`, `productbuild`
+- Python package를 내려받기 위한 네트워크 연결
+
+터미널에서 아키텍처와 명령을 확인한다.
 
 ```bash
+uname -m
+python3.11 --version
+git --version
+command -v pkgbuild
+command -v productbuild
+```
+
+`uname -m`은 `arm64`를 출력해야 한다. `pkgbuild` 또는 `productbuild`가 없으면 macOS와 Xcode Command Line Tools 상태를 확인한다.
+
+```bash
+xcode-select --install
+```
+
+### 10.2 GitHub 소스 clone
+
+```bash
+git clone https://github.com/BaekSukSu/QA_Platform.git
+cd QA_Platform
+```
+
+특정 공개 버전이나 tag를 빌드할 때는 해당 tag로 이동한 뒤 진행한다.
+
+```bash
+git fetch --tags
+git checkout v0.1.0
+```
+
+`v0.1.0` tag가 실제로 만들어진 이후에만 위 checkout 명령을 사용할 수 있다. tag가 없다면 기본 `main` 브랜치의 현재 소스를 빌드한다.
+
+### 10.3 Python 가상환경과 패키징 dependency 설치
+
+프로젝트 루트에서 전용 가상환경을 만들고 packaging extra를 설치한다.
+
+```bash
+python3.11 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
 python -m pip install -e '.[macos-pkg]'
+```
+
+`macos-pkg` extra에는 PyInstaller가 포함된다. 애플리케이션 실행에 필요한 dependency도 함께 설치된다.
+
+### 10.4 미서명 `.pkg` 생성
+
+```bash
 python -m tools.macos.build_pkg --version 0.1.0
 ```
 
-기본 결과 경로는 다음과 같다.
+빌드 과정에서 다음 중간 산출물이 생성된다.
+
+```text
+build/macos/executable/       PyInstaller 실행 파일
+build/macos/pyinstaller-work/ PyInstaller 작업 파일
+build/macos/pyinstaller-spec/ PyInstaller spec 파일
+build/macos/payload/          pkg 설치 payload
+build/macos/intermediate/     component pkg
+```
+
+최종 결과는 다음 경로에 생성된다.
 
 ```text
 dist/qa-platform-macos-arm64.pkg
 ```
 
-패키지 내용을 확인한다.
+다른 출력 경로가 필요하면 `--output-pkg`를 지정한다.
+
+```bash
+python -m tools.macos.build_pkg \
+  --version 0.1.0 \
+  --output-pkg dist/qa-platform-0.1.0-macos-arm64.pkg
+```
+
+`--sign-identity`를 생략한 결과는 내부 시험용 미서명 package다.
+
+### 10.5 생성 결과 확인
+
+파일이 생성됐는지 확인한다.
+
+```bash
+ls -lh dist/qa-platform-macos-arm64.pkg
+```
+
+설치 payload에 CLI wrapper와 애플리케이션이 포함됐는지 확인한다.
 
 ```bash
 pkgutil --payload-files dist/qa-platform-macos-arm64.pkg | rg "qa-platform|QA Platform"
 ```
+
+정상적인 payload에는 `/usr/local/bin/qa-platform` wrapper와 `/Library/Application Support/QA Platform/app/qa-platform/` 아래의 애플리케이션 파일이 포함된다.
+
+### 10.6 설치 smoke test
 
 내부 시험용 미서명 패키지는 별도 테스트 머신에서 다음 smoke test를 수행한다. 설치 명령은 시스템 경로를 변경하므로 실행 대상에 주의한다.
 
@@ -773,6 +863,12 @@ qa-platform init-config --workspace-root /tmp/qa-platform-installed-smoke
 qa-platform doctor --workspace-root /tmp/qa-platform-installed-smoke
 ```
 
+`command -v qa-platform`은 일반적인 설치 환경에서 `/usr/local/bin/qa-platform`을 출력해야 한다. `doctor`에서는 Docker Desktop, Docker daemon과 Tesseract가 별도 설치되어 있는지도 확인한다.
+
+빌드된 `.pkg`에는 Docker Desktop, Tesseract와 Gemini API key가 포함되지 않는다. 설치 후 사용자가 각각 준비해야 한다.
+
+### 10.7 서명된 package 생성
+
 외부 배포에는 Developer ID Installer 인증서 서명과 Apple notarization 검증이 추가로 필요하다.
 
 ```bash
@@ -780,6 +876,28 @@ python -m tools.macos.build_pkg \
   --version 0.1.0 \
   --sign-identity "Developer ID Installer: YOUR TEAM NAME"
 ```
+
+서명 결과는 다음 명령으로 확인할 수 있다.
+
+```bash
+pkgutil --check-signature dist/qa-platform-macos-arm64.pkg
+```
+
+`--sign-identity`는 macOS Keychain에 설치된 실제 Developer ID Installer identity와 정확히 일치해야 한다. 서명만으로 notarization이 완료되는 것은 아니므로 외부 배포 시 Apple 공증 절차를 별도로 수행한다.
+
+### 10.8 GitHub 배포 방식
+
+`.pkg`는 크기가 있는 빌드 산출물이므로 source tree에 commit하지 않는다. `.gitignore`도 `dist/`와 `*.pkg`를 제외한다.
+
+공식 설치 파일을 제공하려면 다음 방식이 적합하다.
+
+1. 검증된 commit에 `v0.1.0` 같은 version tag를 만든다.
+2. 해당 tag의 소스로 `.pkg`를 다시 빌드한다.
+3. 설치 및 `doctor` smoke test를 수행한다.
+4. GitHub Release를 생성한다.
+5. `.pkg`를 Release asset으로 첨부한다.
+
+현재 저장소에는 `.github/workflows/` 기반 자동 빌드가 없다. 따라서 GitHub의 source code archive를 내려받는 것만으로 `.pkg`가 자동 생성되지는 않으며, 위 로컬 빌드 명령을 실행해야 한다.
 
 ## 11. 개발 테스트
 

@@ -358,6 +358,8 @@ python -m pytest -q -m "not docker"
 
 ## macOS `.pkg` 생성
 
+GitHub 소스를 clone한 사용자는 Apple Silicon macOS에서 직접 `.pkg`를 만들 수 있다. 현재 GitHub Actions 자동 빌드는 제공하지 않으므로 로컬 환경에서 다음 명령을 실행한다.
+
 ```bash
 python -m pip install -e '.[macos-pkg]'
 python -m tools.macos.build_pkg --version 0.1.0
@@ -370,6 +372,7 @@ dist/qa-platform-macos-arm64.pkg
 ```
 
 서명 identity가 준비된 경우 `--sign-identity`를 지정할 수 있다.
+clone부터 환경 확인, 검증과 서명까지의 전체 절차는 [기술·운영 통합 가이드의 macOS 패키지 빌드 절](docs/QA_Platform_기술_운영_통합_가이드.md#10-macos-패키지-빌드와-검증)을 참고한다.
 
 ## 현재 제약사항
 
