@@ -1,0 +1,20 @@
+[META]
+page=16
+code_type=COMPLETE_CODE
+execution_mode=repl
+context_source_blocks=block_001
+context_symbols=calc
+
+[PACKAGES]
+
+[SETUP]
+def calc(x, y, z):
+    return x+y+z
+
+[CODE]
+calc(x=10, y=20, z=30)
+
+[INPUT]
+
+[OUTPUT]
+60

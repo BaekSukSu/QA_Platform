@@ -1,0 +1,31 @@
+[project]
+name = "qa-platform"
+version = "0.1.0"
+description = "Document extraction and execution pipeline for code block QA contracts."
+requires-python = ">=3.11"
+dependencies = [
+    "google-genai",
+    "opencv-python",
+    "pillow",
+    "pydantic",
+    "pymupdf",
+    "pytesseract",
+    "pywin32; platform_system == 'Windows'",
+]
+
+[project.scripts]
+qa-platform = "qa_platform.pipeline.cli:main"
+
+[project.optional-dependencies]
+macos-pkg = [
+    "pyinstaller>=6,<7",
+]
+
+[tool.setuptools.packages.find]
+include = ["qa_platform*", "tools*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "docker: requires a running Docker daemon and the QA Python image",
+]

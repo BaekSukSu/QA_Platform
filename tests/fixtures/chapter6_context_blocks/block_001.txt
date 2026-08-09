@@ -1,0 +1,20 @@
+[META]
+page=15
+code_type=COMPLETE_CODE
+execution_mode=repl
+context_source_blocks=block_018
+context_symbols=greet
+
+[PACKAGES]
+
+[SETUP]
+def greet(name, msg):
+    print("안녕 ", name + ', ' + msg)
+
+[CODE]
+greet("영희")
+
+[INPUT]
+
+[OUTPUT]
+TypeError: greet() missing 1 required positional argument: 'msg'

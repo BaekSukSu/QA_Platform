@@ -1,0 +1,33 @@
+{
+  "project": {
+    "book_id": "sample_book",
+    "chapter_number": 1,
+    "python_version": "3.11",
+    "extractor_engine": "pdf",
+    "keep_temp_images": false
+  },
+  "paths": {
+    "workspace_root": "..",
+    "env_file": ".env",
+    "input_pdf": "input/chapter01.pdf",
+    "output_root": "extracted_blocks",
+    "work_root": "run/document_extraction",
+    "run_root": "run/qa_pipeline",
+    "tesseract_cmd": "tesseract"
+  },
+  "execution": {
+    "backend": "docker",
+    "docker": {
+      "docker_cmd": "docker",
+      "timeout_seconds": 5,
+      "output_limit_chars": 20000,
+      "memory_limit": "256m",
+      "cpu_limit": 0.5,
+      "pids_limit": 64,
+      "work_tmpfs_size": "64m",
+      "temp_tmpfs_size": "64m",
+      "user": "10001:10001",
+      "image_build_timeout_seconds": 300
+    }
+  }
+}
